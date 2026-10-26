@@ -228,4 +228,30 @@ describe('Sing-Box JSON input parsing', () => {
         const tuicProxy = proxies.find(p => p.tag === 'TUIC-Test');
         expect(tuicProxy.congestion_control).toBe('bbr');
     });
+
+    it('should sanitize Clash array path into string for sing-box transport options', async () => {
+        const clashYaml = `
+proxies:
+  - name: "Clash-HTTP-Array-Path"
+    type: vmess
+    server: 1.2.3.4
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789abc
+    alterId: 0
+    cipher: auto
+    network: http
+    http-opts:
+      path:
+        - "/api/v1"
+        - "/backup"
+`;
+        const builder = new SingboxConfigBuilder(
+            clashYaml, [], [], null, 'zh-CN', null, false
+        );
+        const result = await builder.build();
+        const proxy = result.outbounds.find(o => o.tag === 'Clash-HTTP-Array-Path');
+        expect(proxy).toBeDefined();
+        expect(typeof proxy.transport?.path).toBe('string');
+        expect(proxy.transport?.path).toBe('/api/v1');
+    });
 });

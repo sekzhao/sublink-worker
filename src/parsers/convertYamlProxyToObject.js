@@ -6,6 +6,13 @@ export function convertYamlProxyToObject(p) {
         if (value === undefined || value === null) return undefined;
         return Array.isArray(value) ? value : [value];
     };
+    const toSinglePath = (value) => {
+        if (value === undefined || value === null) return undefined;
+        if (Array.isArray(value)) {
+            return value.length > 0 ? String(value[0]) : '/';
+        }
+        return String(value);
+    };
     switch (type) {
         case 'ss':
         case 'shadowsocks':
@@ -35,7 +42,7 @@ export function convertYamlProxyToObject(p) {
                 const net = p.network || p['network-type'];
                 if (net === 'ws') {
                     const w = p['ws-opts'] || {};
-                    return { type: 'ws', path: w.path, headers: w.headers };
+                    return { type: 'ws', path: toSinglePath(w.path), headers: w.headers };
                 }
                 if (net === 'grpc') {
                     const g = p['grpc-opts'] || {};
@@ -43,11 +50,11 @@ export function convertYamlProxyToObject(p) {
                 }
                 if (net === 'http') {
                     const h = p['http-opts'] || {};
-                    return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
+                    return { type: 'http', method: h.method || 'GET', path: toSinglePath(h.path), headers: h.headers };
                 }
                 if (net === 'h2') {
                     const h2 = p['h2-opts'] || {};
-                    return { type: 'h2', path: h2.path, host: h2.host };
+                    return { type: 'h2', path: toSinglePath(h2.path), host: h2.host };
                 }
                 return undefined;
             })();
@@ -91,7 +98,7 @@ export function convertYamlProxyToObject(p) {
                 const net = p.network;
                 if (net === 'ws') {
                     const w = p['ws-opts'] || {};
-                    return { type: 'ws', path: w.path, headers: w.headers };
+                    return { type: 'ws', path: toSinglePath(w.path), headers: w.headers };
                 }
                 if (net === 'grpc') {
                     const g = p['grpc-opts'] || {};
@@ -99,11 +106,11 @@ export function convertYamlProxyToObject(p) {
                 }
                 if (net === 'http') {
                     const h = p['http-opts'] || {};
-                    return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
+                    return { type: 'http', method: h.method || 'GET', path: toSinglePath(h.path), headers: h.headers };
                 }
                 if (net === 'h2') {
                     const h2 = p['h2-opts'] || {};
-                    return { type: 'h2', path: h2.path, host: h2.host };
+                    return { type: 'h2', path: toSinglePath(h2.path), host: h2.host };
                 }
                 return undefined;
             })();
@@ -146,7 +153,7 @@ export function convertYamlProxyToObject(p) {
                 const net = p.network;
                 if (net === 'ws') {
                     const w = p['ws-opts'] || {};
-                    return { type: 'ws', path: w.path, headers: w.headers };
+                    return { type: 'ws', path: toSinglePath(w.path), headers: w.headers };
                 }
                 if (net === 'grpc') {
                     const g = p['grpc-opts'] || {};
@@ -154,11 +161,11 @@ export function convertYamlProxyToObject(p) {
                 }
                 if (net === 'http') {
                     const h = p['http-opts'] || {};
-                    return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
+                    return { type: 'http', method: h.method || 'GET', path: toSinglePath(h.path), headers: h.headers };
                 }
                 if (net === 'h2') {
                     const h2 = p['h2-opts'] || {};
-                    return { type: 'h2', path: h2.path, host: h2.host };
+                    return { type: 'h2', path: toSinglePath(h2.path), host: h2.host };
                 }
                 return undefined;
             })();

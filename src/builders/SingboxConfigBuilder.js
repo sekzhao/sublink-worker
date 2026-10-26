@@ -78,6 +78,20 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         delete sanitized.udp;
         delete sanitized.network;
 
+        // sing-box transport.path must be a string (e.g. V2RayHTTPOptions.path),
+        // but Clash configs can specify http-opts.path or ws-opts.path as an array.
+        if (sanitized.transport) {
+            sanitized.transport = { ...sanitized.transport };
+            if (Array.isArray(sanitized.transport.path)) {
+                sanitized.transport.path = sanitized.transport.path.length > 0
+                    ? String(sanitized.transport.path[0])
+                    : '/';
+            }
+        }
+        if (Array.isArray(sanitized.path)) {
+            sanitized.path = sanitized.path.length > 0 ? String(sanitized.path[0]) : '/';
+        }
+
         // Remove 'alpn' from root level - it should only exist inside 'tls' object for sing-box
         // For protocols like vless/vmess, alpn belongs inside the tls configuration
         if (sanitized.alpn && sanitized.tls) {
