@@ -11778,6 +11778,16 @@ __name(findGroupIndexByName, "findGroupIndexByName");
 
 // src/builders/SingboxConfigBuilder.js
 var RULE_SET_HTTP_CLIENT_TAG = "rule-set-download";
+var VALID_SINGBOX_DNS_KEYS = /* @__PURE__ */ new Set([
+  "servers",
+  "rules",
+  "final",
+  "strategy",
+  "reverse_mapping",
+  "fakeip",
+  "independent_cache",
+  "client_subnet"
+]);
 var VALID_SINGBOX_ROOT_KEYS = /* @__PURE__ */ new Set([
   "$schema",
   "log",
@@ -11855,6 +11865,15 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
     if (sanitized.server !== void 0 && sanitized.server !== null) {
       sanitized.server = String(sanitized.server);
     }
+    if (sanitized.server_port !== void 0 && sanitized.server_port !== null) {
+      sanitized.server_port = parseInt(sanitized.server_port, 10);
+    }
+    if (sanitized.alter_id !== void 0 && sanitized.alter_id !== null) {
+      sanitized.alter_id = parseInt(sanitized.alter_id, 10) || 0;
+    }
+    if (sanitized.flow === "") {
+      delete sanitized.flow;
+    }
     if (sanitized.auth !== void 0 && sanitized.auth !== null) {
       sanitized.auth = String(sanitized.auth);
     }
@@ -11871,7 +11890,13 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
     }
     if (sanitized.tls && typeof sanitized.tls === "object") {
       if (sanitized.tls.server_name !== void 0 && sanitized.tls.server_name !== null) {
-        sanitized.tls.server_name = String(sanitized.tls.server_name);
+        sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
+        if (sanitized.tls.server_name === "") {
+          delete sanitized.tls.server_name;
+        }
+      }
+      if (sanitized.tls.insecure !== void 0) {
+        sanitized.tls.insecure = !!sanitized.tls.insecure;
       }
     }
     if (sanitized.transport) {
@@ -12338,6 +12363,13 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
       this.config.inbounds.forEach((inbound) => {
         if (inbound?.type === "tun") {
           delete inbound.stack;
+        }
+      });
+    }
+    if (this.config.dns && typeof this.config.dns === "object") {
+      Object.keys(this.config.dns).forEach((key) => {
+        if (!VALID_SINGBOX_DNS_KEYS.has(key)) {
+          delete this.config.dns[key];
         }
       });
     }

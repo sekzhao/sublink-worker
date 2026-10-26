@@ -7,6 +7,17 @@ import { buildSelectorMembers as buildSelectorMemberList, buildNodeSelectMembers
 import { normalizeGroupName } from './helpers/groupNameUtils.js';
 
 const RULE_SET_HTTP_CLIENT_TAG = 'rule-set-download';
+const VALID_SINGBOX_DNS_KEYS = new Set([
+    'servers',
+    'rules',
+    'final',
+    'strategy',
+    'reverse_mapping',
+    'fakeip',
+    'independent_cache',
+    'client_subnet'
+]);
+
 const VALID_SINGBOX_ROOT_KEYS = new Set([
     '$schema',
     'log',
@@ -104,6 +115,15 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         if (sanitized.server !== undefined && sanitized.server !== null) {
             sanitized.server = String(sanitized.server);
         }
+        if (sanitized.server_port !== undefined && sanitized.server_port !== null) {
+            sanitized.server_port = parseInt(sanitized.server_port, 10);
+        }
+        if (sanitized.alter_id !== undefined && sanitized.alter_id !== null) {
+            sanitized.alter_id = parseInt(sanitized.alter_id, 10) || 0;
+        }
+        if (sanitized.flow === '') {
+            delete sanitized.flow;
+        }
         if (sanitized.auth !== undefined && sanitized.auth !== null) {
             sanitized.auth = String(sanitized.auth);
         }
@@ -120,7 +140,13 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         }
         if (sanitized.tls && typeof sanitized.tls === 'object') {
             if (sanitized.tls.server_name !== undefined && sanitized.tls.server_name !== null) {
-                sanitized.tls.server_name = String(sanitized.tls.server_name);
+                sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
+                if (sanitized.tls.server_name === '') {
+                    delete sanitized.tls.server_name;
+                }
+            }
+            if (sanitized.tls.insecure !== undefined) {
+                sanitized.tls.insecure = !!sanitized.tls.insecure;
             }
         }
 
@@ -701,7 +727,16 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
             });
         }
 
-                // Strip any Clash or Surge root fields (such as 'mixed-port', 'port', 'allow-lan', 'mode')
+                // Strip any Clash DNS fields leaked into sing-box DNS (such as 'enable', 'enhanced-mode', 'fake-ip-range', 'nameserver', 'fallback')
+        if (this.config.dns && typeof this.config.dns === 'object') {
+            Object.keys(this.config.dns).forEach(key => {
+                if (!VALID_SINGBOX_DNS_KEYS.has(key)) {
+                    delete this.config.dns[key];
+                }
+            });
+        }
+
+        // Strip any Clash or Surge root fields (such as 'mixed-port', 'port', 'allow-lan', 'mode')
         // sing-box enforces strict JSON unmarshaling and rejects unknown root fields.
         Object.keys(this.config).forEach(key => {
             if (!VALID_SINGBOX_ROOT_KEYS.has(key)) {

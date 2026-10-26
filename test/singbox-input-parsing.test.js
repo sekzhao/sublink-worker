@@ -311,4 +311,31 @@ proxies:
         expect(result['log-level']).toBeUndefined();
         expect(result.outbounds.some(o => o.tag === 'Node-Test')).toBe(true);
     });
+    it('should strip Clash DNS fields like enhanced-mode and nameserver from sing-box dns', async () => {
+        const clashWithDns = `
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - 223.5.5.5
+proxies:
+  - name: "Node-DNS-Test"
+    type: ss
+    server: 1.1.1.1
+    port: 8388
+    cipher: aes-256-gcm
+    password: test
+`;
+        const builder = new SingboxConfigBuilder(
+            clashWithDns, [], [], null, 'zh-CN', null, false
+        );
+        const result = await builder.build();
+        expect(result.dns['enable']).toBeUndefined();
+        expect(result.dns['enhanced-mode']).toBeUndefined();
+        expect(result.dns['fake-ip-range']).toBeUndefined();
+        expect(result.dns['nameserver']).toBeUndefined();
+        expect(result.dns.servers).toBeDefined();
+    });
 });
