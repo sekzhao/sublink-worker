@@ -75,7 +75,8 @@ export const SING_BOX_CONFIG = {
 				rcode: "REFUSED"
 			}
 		],
-		final: "dns_direct"
+		final: "dns_direct",
+		reverse_mapping: true
 	},
 	ntp: {
 		enabled: true,

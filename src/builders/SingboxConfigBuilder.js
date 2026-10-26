@@ -454,7 +454,9 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
      * while older versions get the legacy per-rule-set field.
      */
     configureRuleSetDownload() {
-        if (this.singboxVersion === '1.14') {
+        const isModern = ['1.14', '1.15', 'latest'].includes(this.singboxVersion) ||
+            (this.singboxVersion && parseFloat(this.singboxVersion) >= 1.14);
+        if (isModern) {
             if (!this.config.route.default_http_client) {
                 if (!Array.isArray(this.config.http_clients) || this.config.http_clients.length === 0) {
                     this.config.http_clients = [{ tag: RULE_SET_HTTP_CLIENT_TAG, detour: 'DIRECT' }];
@@ -628,6 +630,17 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
                 default_mode: clashMode
             };
         }
+        const isAtLeast1_15 = ['1.15', 'latest'].includes(this.singboxVersion) ||
+            (this.singboxVersion && parseFloat(this.singboxVersion) >= 1.15);
+
+        if (isAtLeast1_15 && Array.isArray(this.config.inbounds)) {
+            this.config.inbounds.forEach(inbound => {
+                if (inbound?.type === 'tun') {
+                    delete inbound.stack;
+                }
+            });
+        }
+
         return this.config;
     }
 }

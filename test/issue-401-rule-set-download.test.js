@@ -127,11 +127,33 @@ describe('sing-box version tier resolution', () => {
         expect(json.route.default_http_client).toBe('rule-set-download');
     });
 
+    it('returns the 1.15 shape for sb_ver=1.15', async () => {
+        const res = await fetchConfig('&sb_ver=1.15');
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.route.default_http_client).toBe('rule-set-download');
+        const tun = json.inbounds.find(i => i.type === 'tun');
+        expect(tun).not.toHaveProperty('stack');
+    });
+
+    it('returns the 1.15 shape for a sing-box 1.15 user-agent', async () => {
+        const res = await fetchConfig('', {
+            'User-Agent': 'SFA/1.15.0 (100; sing-box 1.15.0; language zh_Hans_CN)'
+        });
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.route.default_http_client).toBe('rule-set-download');
+        const tun = json.inbounds.find(i => i.type === 'tun');
+        expect(tun).not.toHaveProperty('stack');
+    });
+
     it('maps sb_ver=latest to the newest tier', async () => {
         const res = await fetchConfig('&sb_ver=latest');
         expect(res.status).toBe(200);
         const json = await res.json();
         expect(json.route.default_http_client).toBe('rule-set-download');
+        const tun = json.inbounds.find(i => i.type === 'tun');
+        expect(tun).not.toHaveProperty('stack');
     });
 
     it('keeps download_detour for sb_ver=1.12', async () => {

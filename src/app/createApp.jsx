@@ -488,14 +488,15 @@ function isSingboxModernConfig(version) {
 
 function resolveSingboxConfigTier(version) {
     if (isSingboxLegacyConfig(version)) return '1.11';
-    return isSingboxModernConfig(version) ? '1.14' : '1.12';
+    if (!isSingboxModernConfig(version)) return '1.12';
+    return version.minor >= 15 ? '1.15' : '1.14';
 }
 
 function resolveSingboxConfigVersion(requestedVersion, userAgent) {
     const normalizedRequested = typeof requestedVersion === 'string' ? requestedVersion.trim().toLowerCase() : '';
     if (normalizedRequested && normalizedRequested !== 'auto') {
         if (normalizedRequested === 'legacy') return '1.11';
-        if (normalizedRequested === 'latest') return '1.14';
+        if (normalizedRequested === 'latest') return '1.15';
         const parsed = parseSemverLike(normalizedRequested);
         if (parsed) {
             return resolveSingboxConfigTier(parsed);
