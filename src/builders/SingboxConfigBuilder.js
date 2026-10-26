@@ -12,9 +12,14 @@ const VALID_SINGBOX_DNS_KEYS = new Set([
     'rules',
     'final',
     'strategy',
+    'timeout',
+    'disable_cache',
+    'disable_expire',
+    'independent_cache',
+    'cache_capacity',
+    'optimistic',
     'reverse_mapping',
     'fakeip',
-    'independent_cache',
     'client_subnet'
 ]);
 
@@ -31,6 +36,64 @@ const VALID_SINGBOX_ROOT_KEYS = new Set([
     'experimental',
     'http_clients',
     'certificate_providers'
+]);
+
+const VALID_SINGBOX_EXPERIMENTAL_KEYS = new Set([
+    'cache_file',
+    'clash_api',
+    'v2ray_api',
+    'debug'
+]);
+
+const VALID_SINGBOX_CLASH_API_KEYS = new Set([
+    'external_controller',
+    'external_ui',
+    'external_ui_download_url',
+    'external_ui_download_detour',
+    'secret',
+    'default_mode',
+    'access_control_allow_origin',
+    'access_control_allow_private_network',
+    'cache_file',
+    'cache_id',
+    'store_mode',
+    'store_selected',
+    'store_fakeip'
+]);
+
+const VALID_SINGBOX_CACHE_FILE_KEYS = new Set([
+    'enabled',
+    'path',
+    'cache_id',
+    'store_fakeip',
+    'store_dns',
+    'buffer_size',
+    'flush_interval',
+    'store_rdrc',
+    'rdrc_timeout'
+]);
+
+const VALID_SINGBOX_V2RAY_API_KEYS = new Set([
+    'listen',
+    'stats'
+]);
+
+const VALID_SINGBOX_DEBUG_KEYS = new Set([
+    'listen',
+    'gc_percent',
+    'max_stack',
+    'max_threads',
+    'panic_on_fault',
+    'trace_back',
+    'memory_limit',
+    'oom_killer'
+]);
+
+const VALID_SINGBOX_LOG_KEYS = new Set([
+    'disabled',
+    'level',
+    'output',
+    'timestamp'
 ]);
 
 const ANYTLS_OPTION_KEYS = {
@@ -866,11 +929,82 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
             });
         }
 
-                // Strip any Clash DNS fields leaked into sing-box DNS (such as 'enable', 'enhanced-mode', 'fake-ip-range', 'nameserver', 'fallback')
+        // Strip any Clash DNS fields leaked into sing-box DNS (such as 'enable', 'enhanced-mode', 'fake-ip-range', 'nameserver', 'fallback')
         if (this.config.dns && typeof this.config.dns === 'object') {
             Object.keys(this.config.dns).forEach(key => {
                 if (!VALID_SINGBOX_DNS_KEYS.has(key)) {
                     delete this.config.dns[key];
+                }
+            });
+            const isAtLeast1_12 = ['1.12', '1.14', '1.15', 'latest'].includes(this.singboxVersion) ||
+                (this.singboxVersion && parseFloat(this.singboxVersion) >= 1.12);
+            if (isAtLeast1_12) {
+                delete this.config.dns.fakeip;
+            }
+        }
+
+        // Strip any Clash experimental fields leaked into sing-box experimental (such as 'quic-go-disable-gso', 'quic-go-disable-ecn')
+        if (this.config.experimental) {
+            if (typeof this.config.experimental !== 'object' || Array.isArray(this.config.experimental)) {
+                delete this.config.experimental;
+            } else {
+                Object.keys(this.config.experimental).forEach(key => {
+                    if (!VALID_SINGBOX_EXPERIMENTAL_KEYS.has(key)) {
+                        delete this.config.experimental[key];
+                    }
+                });
+
+                if (this.config.experimental.clash_api && typeof this.config.experimental.clash_api === 'object') {
+                    Object.keys(this.config.experimental.clash_api).forEach(key => {
+                        if (!VALID_SINGBOX_CLASH_API_KEYS.has(key)) {
+                            delete this.config.experimental.clash_api[key];
+                        }
+                    });
+                }
+
+                if (this.config.experimental.cache_file && typeof this.config.experimental.cache_file === 'object') {
+                    Object.keys(this.config.experimental.cache_file).forEach(key => {
+                        if (!VALID_SINGBOX_CACHE_FILE_KEYS.has(key)) {
+                            delete this.config.experimental.cache_file[key];
+                        }
+                    });
+                }
+
+                if (this.config.experimental.v2ray_api && typeof this.config.experimental.v2ray_api === 'object') {
+                    Object.keys(this.config.experimental.v2ray_api).forEach(key => {
+                        if (!VALID_SINGBOX_V2RAY_API_KEYS.has(key)) {
+                            delete this.config.experimental.v2ray_api[key];
+                        }
+                    });
+                }
+
+                if (this.config.experimental.debug && typeof this.config.experimental.debug === 'object') {
+                    Object.keys(this.config.experimental.debug).forEach(key => {
+                        if (!VALID_SINGBOX_DEBUG_KEYS.has(key)) {
+                            delete this.config.experimental.debug[key];
+                        }
+                    });
+                }
+
+                // If cache_file was wiped out by Clash experimental override, restore default cache_file for fake-ip support
+                if (!this.config.experimental.cache_file && !this.config.experimental.clash_api && !this.config.experimental.v2ray_api && !this.config.experimental.debug) {
+                    this.config.experimental.cache_file = {
+                        enabled: true,
+                        store_fakeip: true
+                    };
+                }
+
+                if (Object.keys(this.config.experimental).length === 0) {
+                    delete this.config.experimental;
+                }
+            }
+        }
+
+        // Strip any Clash log fields
+        if (this.config.log && typeof this.config.log === 'object') {
+            Object.keys(this.config.log).forEach(key => {
+                if (!VALID_SINGBOX_LOG_KEYS.has(key)) {
+                    delete this.config.log[key];
                 }
             });
         }

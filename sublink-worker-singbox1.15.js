@@ -11809,9 +11809,14 @@ var VALID_SINGBOX_DNS_KEYS = /* @__PURE__ */ new Set([
   "rules",
   "final",
   "strategy",
+  "timeout",
+  "disable_cache",
+  "disable_expire",
+  "independent_cache",
+  "cache_capacity",
+  "optimistic",
   "reverse_mapping",
   "fakeip",
-  "independent_cache",
   "client_subnet"
 ]);
 var VALID_SINGBOX_ROOT_KEYS = /* @__PURE__ */ new Set([
@@ -11827,6 +11832,58 @@ var VALID_SINGBOX_ROOT_KEYS = /* @__PURE__ */ new Set([
   "experimental",
   "http_clients",
   "certificate_providers"
+]);
+var VALID_SINGBOX_EXPERIMENTAL_KEYS = /* @__PURE__ */ new Set([
+  "cache_file",
+  "clash_api",
+  "v2ray_api",
+  "debug"
+]);
+var VALID_SINGBOX_CLASH_API_KEYS = /* @__PURE__ */ new Set([
+  "external_controller",
+  "external_ui",
+  "external_ui_download_url",
+  "external_ui_download_detour",
+  "secret",
+  "default_mode",
+  "access_control_allow_origin",
+  "access_control_allow_private_network",
+  "cache_file",
+  "cache_id",
+  "store_mode",
+  "store_selected",
+  "store_fakeip"
+]);
+var VALID_SINGBOX_CACHE_FILE_KEYS = /* @__PURE__ */ new Set([
+  "enabled",
+  "path",
+  "cache_id",
+  "store_fakeip",
+  "store_dns",
+  "buffer_size",
+  "flush_interval",
+  "store_rdrc",
+  "rdrc_timeout"
+]);
+var VALID_SINGBOX_V2RAY_API_KEYS = /* @__PURE__ */ new Set([
+  "listen",
+  "stats"
+]);
+var VALID_SINGBOX_DEBUG_KEYS = /* @__PURE__ */ new Set([
+  "listen",
+  "gc_percent",
+  "max_stack",
+  "max_threads",
+  "panic_on_fault",
+  "trace_back",
+  "memory_limit",
+  "oom_killer"
+]);
+var VALID_SINGBOX_LOG_KEYS = /* @__PURE__ */ new Set([
+  "disabled",
+  "level",
+  "output",
+  "timestamp"
 ]);
 var ANYTLS_OPTION_KEYS = {
   "idle-session-check-interval": "idle_session_check_interval",
@@ -12513,6 +12570,65 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
       Object.keys(this.config.dns).forEach((key) => {
         if (!VALID_SINGBOX_DNS_KEYS.has(key)) {
           delete this.config.dns[key];
+        }
+      });
+      const isAtLeast1_12 = ["1.12", "1.14", "1.15", "latest"].includes(this.singboxVersion) || this.singboxVersion && parseFloat(this.singboxVersion) >= 1.12;
+      if (isAtLeast1_12) {
+        delete this.config.dns.fakeip;
+      }
+    }
+    if (this.config.experimental) {
+      if (typeof this.config.experimental !== "object" || Array.isArray(this.config.experimental)) {
+        delete this.config.experimental;
+      } else {
+        Object.keys(this.config.experimental).forEach((key) => {
+          if (!VALID_SINGBOX_EXPERIMENTAL_KEYS.has(key)) {
+            delete this.config.experimental[key];
+          }
+        });
+        if (this.config.experimental.clash_api && typeof this.config.experimental.clash_api === "object") {
+          Object.keys(this.config.experimental.clash_api).forEach((key) => {
+            if (!VALID_SINGBOX_CLASH_API_KEYS.has(key)) {
+              delete this.config.experimental.clash_api[key];
+            }
+          });
+        }
+        if (this.config.experimental.cache_file && typeof this.config.experimental.cache_file === "object") {
+          Object.keys(this.config.experimental.cache_file).forEach((key) => {
+            if (!VALID_SINGBOX_CACHE_FILE_KEYS.has(key)) {
+              delete this.config.experimental.cache_file[key];
+            }
+          });
+        }
+        if (this.config.experimental.v2ray_api && typeof this.config.experimental.v2ray_api === "object") {
+          Object.keys(this.config.experimental.v2ray_api).forEach((key) => {
+            if (!VALID_SINGBOX_V2RAY_API_KEYS.has(key)) {
+              delete this.config.experimental.v2ray_api[key];
+            }
+          });
+        }
+        if (this.config.experimental.debug && typeof this.config.experimental.debug === "object") {
+          Object.keys(this.config.experimental.debug).forEach((key) => {
+            if (!VALID_SINGBOX_DEBUG_KEYS.has(key)) {
+              delete this.config.experimental.debug[key];
+            }
+          });
+        }
+        if (!this.config.experimental.cache_file && !this.config.experimental.clash_api && !this.config.experimental.v2ray_api && !this.config.experimental.debug) {
+          this.config.experimental.cache_file = {
+            enabled: true,
+            store_fakeip: true
+          };
+        }
+        if (Object.keys(this.config.experimental).length === 0) {
+          delete this.config.experimental;
+        }
+      }
+    }
+    if (this.config.log && typeof this.config.log === "object") {
+      Object.keys(this.config.log).forEach((key) => {
+        if (!VALID_SINGBOX_LOG_KEYS.has(key)) {
+          delete this.config.log[key];
         }
       });
     }
