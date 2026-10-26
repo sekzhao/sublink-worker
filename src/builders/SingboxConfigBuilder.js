@@ -78,6 +78,37 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         delete sanitized.udp;
         delete sanitized.network;
 
+        // Ensure string fields are strings (YAML parses pure numbers as JS numbers,
+        // which causes sing-box Go unmarshaling to fail with "cannot unmarshal number into string")
+        if (sanitized.password !== undefined && sanitized.password !== null) {
+            sanitized.password = String(sanitized.password);
+        }
+        if (sanitized.uuid !== undefined && sanitized.uuid !== null) {
+            sanitized.uuid = String(sanitized.uuid);
+        }
+        if (sanitized.server !== undefined && sanitized.server !== null) {
+            sanitized.server = String(sanitized.server);
+        }
+        if (sanitized.auth !== undefined && sanitized.auth !== null) {
+            sanitized.auth = String(sanitized.auth);
+        }
+        if (sanitized.flow !== undefined && sanitized.flow !== null) {
+            sanitized.flow = String(sanitized.flow);
+        }
+        if (sanitized.method !== undefined && sanitized.method !== null) {
+            sanitized.method = String(sanitized.method);
+        }
+        if (sanitized.obfs && typeof sanitized.obfs === 'object') {
+            if (sanitized.obfs.password !== undefined && sanitized.obfs.password !== null) {
+                sanitized.obfs.password = String(sanitized.obfs.password);
+            }
+        }
+        if (sanitized.tls && typeof sanitized.tls === 'object') {
+            if (sanitized.tls.server_name !== undefined && sanitized.tls.server_name !== null) {
+                sanitized.tls.server_name = String(sanitized.tls.server_name);
+            }
+        }
+
         // sing-box transport.path must be a string (e.g. V2RayHTTPOptions.path),
         // but Clash configs can specify http-opts.path or ws-opts.path as an array.
         if (sanitized.transport) {

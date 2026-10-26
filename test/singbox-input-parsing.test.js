@@ -254,4 +254,33 @@ proxies:
         expect(typeof proxy.transport?.path).toBe('string');
         expect(proxy.transport?.path).toBe('/api/v1');
     });
+    it('should sanitize numeric passwords and uuids into strings for sing-box', async () => {
+        const clashYaml = `
+proxies:
+  - name: "Trojan-Num-Pwd"
+    type: trojan
+    server: 1.2.3.4
+    port: 443
+    password: 12345678
+  - name: "VMess-Num-UUID"
+    type: vmess
+    server: 1.2.3.4
+    port: 443
+    uuid: 88888888
+    cipher: auto
+`;
+        const builder = new SingboxConfigBuilder(
+            clashYaml, [], [], null, 'zh-CN', null, false
+        );
+        const result = await builder.build();
+        const trojan = result.outbounds.find(o => o.tag === 'Trojan-Num-Pwd');
+        expect(trojan).toBeDefined();
+        expect(typeof trojan.password).toBe('string');
+        expect(trojan.password).toBe('12345678');
+
+        const vmess = result.outbounds.find(o => o.tag === 'VMess-Num-UUID');
+        expect(vmess).toBeDefined();
+        expect(typeof vmess.uuid).toBe('string');
+        expect(vmess.uuid).toBe('88888888');
+    });
 });

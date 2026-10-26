@@ -3582,6 +3582,10 @@ function convertYamlProxyToObject(p) {
     }
     return String(value);
   }, "toSinglePath");
+  const toStringSafe = /* @__PURE__ */ __name((value) => {
+    if (value === void 0 || value === null) return void 0;
+    return String(value);
+  }, "toStringSafe");
   switch (type2) {
     case "ss":
     case "shadowsocks":
@@ -3591,7 +3595,7 @@ function convertYamlProxyToObject(p) {
         server: p.server,
         server_port: parseInt(p.port),
         method: p.cipher || p.method,
-        password: p.password,
+        password: toStringSafe(p.password),
         network: "tcp",
         tcp_fast_open: !!p["fast-open"],
         udp: typeof p.udp !== "undefined" ? !!p.udp : void 0,
@@ -3630,7 +3634,7 @@ function convertYamlProxyToObject(p) {
         type: "vmess",
         server: p.server,
         server_port: parseInt(p.port),
-        uuid: p.uuid,
+        uuid: toStringSafe(p.uuid),
         alter_id: typeof p.alterId !== "undefined" ? parseInt(p.alterId) : 0,
         security: p.cipher || p.security || "auto",
         network: transport?.type || p.network || "tcp",
@@ -3682,7 +3686,7 @@ function convertYamlProxyToObject(p) {
         type: "vless",
         server: p.server,
         server_port: parseInt(p.port),
-        uuid: p.uuid,
+        uuid: toStringSafe(p.uuid),
         tcp_fast_open: typeof p["fast-open"] !== "undefined" ? !!p["fast-open"] : false,
         tls,
         transport,
@@ -3733,7 +3737,7 @@ function convertYamlProxyToObject(p) {
         tag: name,
         server: p.server,
         server_port: parseInt(p.port),
-        password: p.password,
+        password: toStringSafe(p.password),
         network: transport?.type || p.network || "tcp",
         tcp_fast_open: typeof p["fast-open"] !== "undefined" ? !!p["fast-open"] : false,
         tls,
@@ -3762,7 +3766,7 @@ function convertYamlProxyToObject(p) {
         type: "hysteria2",
         server: p.server,
         server_port: parseInt(p.port),
-        password: p.password,
+        password: toStringSafe(p.password),
         tls,
         obfs: Object.keys(obfs).length > 0 ? obfs : void 0,
         auth: p.auth,
@@ -3781,8 +3785,8 @@ function convertYamlProxyToObject(p) {
         type: "tuic",
         server: p.server,
         server_port: parseInt(p.port),
-        uuid: p.uuid,
-        password: p.password,
+        uuid: toStringSafe(p.uuid),
+        password: toStringSafe(p.password),
         congestion_control: p["congestion-controller"] || p.congestion_control,
         tls: {
           enabled: true,
@@ -3816,7 +3820,7 @@ function convertYamlProxyToObject(p) {
         type: "anytls",
         server: p.server,
         server_port: parseInt(p.port),
-        password: p.password,
+        password: toStringSafe(p.password),
         udp: !!p.udp,
         "idle-session-check-interval": p["idle-session-check-interval"],
         "idle-session-timeout": p["idle-session-timeout"],
@@ -11828,6 +11832,34 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
     }
     delete sanitized.udp;
     delete sanitized.network;
+    if (sanitized.password !== void 0 && sanitized.password !== null) {
+      sanitized.password = String(sanitized.password);
+    }
+    if (sanitized.uuid !== void 0 && sanitized.uuid !== null) {
+      sanitized.uuid = String(sanitized.uuid);
+    }
+    if (sanitized.server !== void 0 && sanitized.server !== null) {
+      sanitized.server = String(sanitized.server);
+    }
+    if (sanitized.auth !== void 0 && sanitized.auth !== null) {
+      sanitized.auth = String(sanitized.auth);
+    }
+    if (sanitized.flow !== void 0 && sanitized.flow !== null) {
+      sanitized.flow = String(sanitized.flow);
+    }
+    if (sanitized.method !== void 0 && sanitized.method !== null) {
+      sanitized.method = String(sanitized.method);
+    }
+    if (sanitized.obfs && typeof sanitized.obfs === "object") {
+      if (sanitized.obfs.password !== void 0 && sanitized.obfs.password !== null) {
+        sanitized.obfs.password = String(sanitized.obfs.password);
+      }
+    }
+    if (sanitized.tls && typeof sanitized.tls === "object") {
+      if (sanitized.tls.server_name !== void 0 && sanitized.tls.server_name !== null) {
+        sanitized.tls.server_name = String(sanitized.tls.server_name);
+      }
+    }
     if (sanitized.transport) {
       sanitized.transport = { ...sanitized.transport };
       if (Array.isArray(sanitized.transport.path)) {

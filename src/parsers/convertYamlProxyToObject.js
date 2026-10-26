@@ -13,6 +13,10 @@ export function convertYamlProxyToObject(p) {
         }
         return String(value);
     };
+    const toStringSafe = (value) => {
+        if (value === undefined || value === null) return undefined;
+        return String(value);
+    };
     switch (type) {
         case 'ss':
         case 'shadowsocks':
@@ -22,7 +26,7 @@ export function convertYamlProxyToObject(p) {
                 server: p.server,
                 server_port: parseInt(p.port),
                 method: p.cipher || p.method,
-                password: p.password,
+                password: toStringSafe(p.password),
                 network: 'tcp',
                 tcp_fast_open: !!p['fast-open'],
                 udp: typeof p.udp !== 'undefined' ? !!p.udp : undefined,
@@ -63,7 +67,7 @@ export function convertYamlProxyToObject(p) {
                 type: 'vmess',
                 server: p.server,
                 server_port: parseInt(p.port),
-                uuid: p.uuid,
+                uuid: toStringSafe(p.uuid),
                 alter_id: typeof p.alterId !== 'undefined' ? parseInt(p.alterId) : 0,
                 security: p.cipher || p.security || 'auto',
                 network: transport?.type || p.network || 'tcp',
@@ -119,7 +123,7 @@ export function convertYamlProxyToObject(p) {
                 type: 'vless',
                 server: p.server,
                 server_port: parseInt(p.port),
-                uuid: p.uuid,
+                uuid: toStringSafe(p.uuid),
                 tcp_fast_open: typeof p['fast-open'] !== 'undefined' ? !!p['fast-open'] : false,
                 tls,
                 transport,
@@ -174,7 +178,7 @@ export function convertYamlProxyToObject(p) {
                 tag: name,
                 server: p.server,
                 server_port: parseInt(p.port),
-                password: p.password,
+                password: toStringSafe(p.password),
                 network: transport?.type || p.network || 'tcp',
                 tcp_fast_open: typeof p['fast-open'] !== 'undefined' ? !!p['fast-open'] : false,
                 tls,
@@ -203,7 +207,7 @@ export function convertYamlProxyToObject(p) {
                 type: 'hysteria2',
                 server: p.server,
                 server_port: parseInt(p.port),
-                password: p.password,
+                password: toStringSafe(p.password),
                 tls,
                 obfs: Object.keys(obfs).length > 0 ? obfs : undefined,
                 auth: p.auth,
@@ -222,8 +226,8 @@ export function convertYamlProxyToObject(p) {
                 type: 'tuic',
                 server: p.server,
                 server_port: parseInt(p.port),
-                uuid: p.uuid,
-                password: p.password,
+                uuid: toStringSafe(p.uuid),
+                password: toStringSafe(p.password),
                 congestion_control: p['congestion-controller'] || p.congestion_control,
                 tls: {
                     enabled: true,
@@ -257,7 +261,7 @@ export function convertYamlProxyToObject(p) {
                 type: 'anytls',
                 server: p.server,
                 server_port: parseInt(p.port),
-                password: p.password,
+                password: toStringSafe(p.password),
                 udp: !!p.udp,
                 'idle-session-check-interval': p['idle-session-check-interval'],
                 'idle-session-timeout': p['idle-session-timeout'],
