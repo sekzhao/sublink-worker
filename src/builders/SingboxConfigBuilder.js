@@ -1,5 +1,5 @@
 
-import { SING_BOX_CONFIG, generateRuleSets, generateRules, getOutbounds, PREDEFINED_RULE_SETS, DIRECT_DEFAULT_RULES, REJECT_ACTION_RULES } from '../config/index.js';
+import { SING_BOX_CONFIG, generateRuleSets, generateRules, getOutbounds, PREDEFINED_RULE_SETS, DIRECT_DEFAULT_RULES, REJECT_ACTION_RULES, SITE_RULE_SET_BASE_URL, IP_RULE_SET_BASE_URL } from '../config/index.js';
 import { BaseConfigBuilder } from './BaseConfigBuilder.js';
 import { deepCopy, groupProxiesByCountry } from '../utils.js';
 import { addProxyWithDedup } from './helpers/proxyHelpers.js';
@@ -607,6 +607,113 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         }
     }
 
+    reconcileRuleSets(site_rule_sets = [], ip_rule_sets = []) {
+        this.config.route = this.config.route || {};
+        const ruleSetMap = new Map();
+
+        // 1. Add system-generated site & ip rule sets first (maintaining standard order)
+        [...site_rule_sets, ...ip_rule_sets].forEach(rs => {
+            if (rs?.tag) ruleSetMap.set(rs.tag, rs);
+        });
+
+        // 2. Preserve any user-imported or custom-defined remote rule sets
+        if (Array.isArray(this.config.route.rule_set)) {
+            this.config.route.rule_set.forEach(rs => {
+                if (rs?.tag && !ruleSetMap.has(rs.tag)) {
+                    // Do not keep dummy local template rule set if replacing with remote
+                    if (rs.tag === 'geosite-geolocation-!cn' && rs.type === 'local') return;
+                    ruleSetMap.set(rs.tag, rs);
+                }
+            });
+        }
+
+        // 3. Scan dns.rules and route.rules for any referenced rule_set tags
+        const referencedTags = new Set();
+        const extractRuleSetTags = (rule) => {
+            if (!rule) return;
+            if (Array.isArray(rule.rule_set)) {
+                rule.rule_set.forEach(t => t && referencedTags.add(String(t).trim()));
+            } else if (typeof rule.rule_set === 'string' && rule.rule_set.trim()) {
+                referencedTags.add(rule.rule_set.trim());
+            }
+        };
+
+        if (Array.isArray(this.config.dns?.rules)) {
+            this.config.dns.rules.forEach(extractRuleSetTags);
+        }
+        if (Array.isArray(this.config.route?.rules)) {
+            this.config.route.rules.forEach(extractRuleSetTags);
+        }
+
+        // 4. For any referenced tag not yet in ruleSetMap, dynamically create the rule_set
+        const ensureRuleSet = (tag, sourceFile, isIp = false) => {
+            if (!ruleSetMap.has(tag)) {
+                ruleSetMap.set(tag, {
+                    tag,
+                    type: 'remote',
+                    format: 'binary',
+                    url: `${isIp ? IP_RULE_SET_BASE_URL : SITE_RULE_SET_BASE_URL}${sourceFile}.srs`
+                });
+            }
+        };
+
+        referencedTags.forEach(tag => {
+            if (!ruleSetMap.has(tag)) {
+                if (tag === 'geosite-cn' || tag === 'cn') {
+                    ensureRuleSet(tag, 'cn', false);
+                } else if (tag === 'geosite-geolocation-cn' || tag === 'geolocation-cn') {
+                    ensureRuleSet(tag, 'geolocation-cn', false);
+                } else if (tag === 'geosite-geolocation-!cn' || tag === 'geolocation-!cn') {
+                    ensureRuleSet(tag, 'geolocation-!cn', false);
+                } else if (tag === 'geoip-cn' || tag === 'cn-ip') {
+                    ensureRuleSet(tag, 'cn', true);
+                } else if (tag === 'geoip-private' || tag === 'private-ip') {
+                    ensureRuleSet(tag, 'private', true);
+                } else if (tag.startsWith('geoip-')) {
+                    const file = tag.replace(/^geoip-/, '');
+                    ensureRuleSet(tag, file, true);
+                } else if (tag.endsWith('-ip')) {
+                    const file = tag.replace(/-ip$/, '');
+                    ensureRuleSet(tag, file, true);
+                } else if (tag.startsWith('geosite-')) {
+                    const file = tag.replace(/^geosite-/, '');
+                    ensureRuleSet(tag, file, false);
+                } else {
+                    ensureRuleSet(tag, tag, false);
+                }
+            }
+        });
+
+        this.config.route.rule_set = Array.from(ruleSetMap.values());
+
+        // 5. Final guardrail: sanitize dns.rules so no rule contains an unknown rule_set tag
+        const validTags = new Set(this.config.route.rule_set.map(rs => rs.tag));
+        if (Array.isArray(this.config.dns?.rules)) {
+            this.config.dns.rules = this.config.dns.rules.map(rule => {
+                if (!rule) return rule;
+                if (Array.isArray(rule.rule_set)) {
+                    const validList = rule.rule_set.filter(t => validTags.has(String(t).trim()));
+                    if (validList.length === 0) {
+                        const { rule_set: _r, ...rest } = rule;
+                        return rest;
+                    }
+                    return { ...rule, rule_set: validList };
+                } else if (typeof rule.rule_set === 'string') {
+                    if (!validTags.has(rule.rule_set.trim())) {
+                        const { rule_set: _r, ...rest } = rule;
+                        return rest;
+                    }
+                }
+                return rule;
+            }).filter(rule => {
+                // Ensure rule is not a stripped empty shell
+                return Object.keys(rule).some(k =>
+                    !['server', 'action', 'client_subnet', 'disable_cache', 'rewrite_ttl', 'invert'].includes(k)
+                );
+            });
+        }
+    }
+
     formatConfig() {
         const rules = generateRules(this.selectedRules, this.customRules);
         const { site_rule_sets, ip_rule_sets } = generateRuleSets(this.selectedRules, this.customRules);
@@ -625,7 +732,7 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
             }
         }
 
-        this.config.route.rule_set = [...site_rule_sets, ...ip_rule_sets];
+        this.reconcileRuleSets(site_rule_sets, ip_rule_sets);
         this.configureRuleSetDownload();
 
         // Official sing-box rejects provider extensions, including those in custom templates.
@@ -775,6 +882,9 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
                 delete this.config[key];
             }
         });
+
+        this.reconcileRuleSets();
+        this.configureRuleSetDownload();
 
         return this.config;
     }

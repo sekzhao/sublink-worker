@@ -6,7 +6,15 @@ import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/ind
 export class BaseConfigBuilder {
     constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true) {
         this.inputString = inputString;
-        this.config = deepCopy(baseConfig);
+        let resolvedConfig = baseConfig;
+        if (typeof baseConfig === 'string') {
+            try {
+                resolvedConfig = JSON.parse(baseConfig);
+            } catch {
+                resolvedConfig = {};
+            }
+        }
+        this.config = deepCopy(resolvedConfig);
         this.customRules = [];
         this.selectedRules = [];
         this.t = createTranslator(lang);

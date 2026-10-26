@@ -11319,7 +11319,15 @@ var BaseConfigBuilder = class {
   }
   constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true) {
     this.inputString = inputString;
-    this.config = deepCopy(baseConfig);
+    let resolvedConfig = baseConfig;
+    if (typeof baseConfig === "string") {
+      try {
+        resolvedConfig = JSON.parse(baseConfig);
+      } catch {
+        resolvedConfig = {};
+      }
+    }
+    this.config = deepCopy(resolvedConfig);
     this.customRules = [];
     this.selectedRules = [];
     this.t = createTranslator(lang);
@@ -12294,6 +12302,97 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
       target.domain_resolver = resolver;
     }
   }
+  reconcileRuleSets(site_rule_sets = [], ip_rule_sets = []) {
+    this.config.route = this.config.route || {};
+    const ruleSetMap = /* @__PURE__ */ new Map();
+    [...site_rule_sets, ...ip_rule_sets].forEach((rs) => {
+      if (rs?.tag) ruleSetMap.set(rs.tag, rs);
+    });
+    if (Array.isArray(this.config.route.rule_set)) {
+      this.config.route.rule_set.forEach((rs) => {
+        if (rs?.tag && !ruleSetMap.has(rs.tag)) {
+          if (rs.tag === "geosite-geolocation-!cn" && rs.type === "local") return;
+          ruleSetMap.set(rs.tag, rs);
+        }
+      });
+    }
+    const referencedTags = /* @__PURE__ */ new Set();
+    const extractRuleSetTags = /* @__PURE__ */ __name((rule) => {
+      if (!rule) return;
+      if (Array.isArray(rule.rule_set)) {
+        rule.rule_set.forEach((t) => t && referencedTags.add(String(t).trim()));
+      } else if (typeof rule.rule_set === "string" && rule.rule_set.trim()) {
+        referencedTags.add(rule.rule_set.trim());
+      }
+    }, "extractRuleSetTags");
+    if (Array.isArray(this.config.dns?.rules)) {
+      this.config.dns.rules.forEach(extractRuleSetTags);
+    }
+    if (Array.isArray(this.config.route?.rules)) {
+      this.config.route.rules.forEach(extractRuleSetTags);
+    }
+    const ensureRuleSet = /* @__PURE__ */ __name((tag, sourceFile, isIp = false) => {
+      if (!ruleSetMap.has(tag)) {
+        ruleSetMap.set(tag, {
+          tag,
+          type: "remote",
+          format: "binary",
+          url: `${isIp ? IP_RULE_SET_BASE_URL : SITE_RULE_SET_BASE_URL}${sourceFile}.srs`
+        });
+      }
+    }, "ensureRuleSet");
+    referencedTags.forEach((tag) => {
+      if (!ruleSetMap.has(tag)) {
+        if (tag === "geosite-cn" || tag === "cn") {
+          ensureRuleSet(tag, "cn", false);
+        } else if (tag === "geosite-geolocation-cn" || tag === "geolocation-cn") {
+          ensureRuleSet(tag, "geolocation-cn", false);
+        } else if (tag === "geosite-geolocation-!cn" || tag === "geolocation-!cn") {
+          ensureRuleSet(tag, "geolocation-!cn", false);
+        } else if (tag === "geoip-cn" || tag === "cn-ip") {
+          ensureRuleSet(tag, "cn", true);
+        } else if (tag === "geoip-private" || tag === "private-ip") {
+          ensureRuleSet(tag, "private", true);
+        } else if (tag.startsWith("geoip-")) {
+          const file = tag.replace(/^geoip-/, "");
+          ensureRuleSet(tag, file, true);
+        } else if (tag.endsWith("-ip")) {
+          const file = tag.replace(/-ip$/, "");
+          ensureRuleSet(tag, file, true);
+        } else if (tag.startsWith("geosite-")) {
+          const file = tag.replace(/^geosite-/, "");
+          ensureRuleSet(tag, file, false);
+        } else {
+          ensureRuleSet(tag, tag, false);
+        }
+      }
+    });
+    this.config.route.rule_set = Array.from(ruleSetMap.values());
+    const validTags = new Set(this.config.route.rule_set.map((rs) => rs.tag));
+    if (Array.isArray(this.config.dns?.rules)) {
+      this.config.dns.rules = this.config.dns.rules.map((rule) => {
+        if (!rule) return rule;
+        if (Array.isArray(rule.rule_set)) {
+          const validList = rule.rule_set.filter((t) => validTags.has(String(t).trim()));
+          if (validList.length === 0) {
+            const { rule_set: _r, ...rest } = rule;
+            return rest;
+          }
+          return { ...rule, rule_set: validList };
+        } else if (typeof rule.rule_set === "string") {
+          if (!validTags.has(rule.rule_set.trim())) {
+            const { rule_set: _r, ...rest } = rule;
+            return rest;
+          }
+        }
+        return rule;
+      }).filter((rule) => {
+        return Object.keys(rule).some(
+          (k) => !["server", "action", "client_subnet", "disable_cache", "rewrite_ttl", "invert"].includes(k)
+        );
+      });
+    }
+  }
   formatConfig() {
     const rules = generateRules(this.selectedRules, this.customRules);
     const { site_rule_sets, ip_rule_sets } = generateRuleSets(this.selectedRules, this.customRules);
@@ -12307,7 +12406,7 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
         this.config.route.default_domain_resolver = bootstrapResolver.tag;
       }
     }
-    this.config.route.rule_set = [...site_rule_sets, ...ip_rule_sets];
+    this.reconcileRuleSets(site_rule_sets, ip_rule_sets);
     this.configureRuleSetDownload();
     delete this.config.outbound_providers;
     (this.config.outbounds || []).forEach((outbound) => {
@@ -12422,6 +12521,8 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
         delete this.config[key];
       }
     });
+    this.reconcileRuleSets();
+    this.configureRuleSetDownload();
     return this.config;
   }
 };
