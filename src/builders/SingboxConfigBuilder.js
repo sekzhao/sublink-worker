@@ -138,15 +138,39 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
                 sanitized.obfs.password = String(sanitized.obfs.password);
             }
         }
-        if (sanitized.tls && typeof sanitized.tls === 'object') {
-            if (sanitized.tls.server_name !== undefined && sanitized.tls.server_name !== null) {
-                sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
-                if (sanitized.tls.server_name === '') {
-                    delete sanitized.tls.server_name;
+        // Protocol-specific mandatory TLS requirements in sing-box
+        const TLS_MANDATORY_TYPES = ['trojan', 'hysteria2', 'tuic', 'anytls'];
+        if (TLS_MANDATORY_TYPES.includes(sanitized.type)) {
+            if (!sanitized.tls || typeof sanitized.tls !== 'object') {
+                sanitized.tls = { enabled: true };
+            } else {
+                sanitized.tls.enabled = true;
+            }
+            if (!sanitized.tls.server_name && sanitized.server) {
+                const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(sanitized.server) || sanitized.server.includes(':');
+                if (!isIp) {
+                    sanitized.tls.server_name = sanitized.server;
                 }
             }
-            if (sanitized.tls.insecure !== undefined) {
-                sanitized.tls.insecure = !!sanitized.tls.insecure;
+        }
+
+        if (sanitized.tls && typeof sanitized.tls === 'object') {
+            if (sanitized.tls.enabled === false) {
+                // If TLS is explicitly disabled, strip the tls block completely
+                // so sing-box Go struct does not unmarshal non-nil options with enabled=false
+                // which causes runtime nil pointer panic in ClientHandshake
+                delete sanitized.tls;
+            } else {
+                sanitized.tls.enabled = true;
+                if (sanitized.tls.server_name !== undefined && sanitized.tls.server_name !== null) {
+                    sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
+                    if (sanitized.tls.server_name === '') {
+                        delete sanitized.tls.server_name;
+                    }
+                }
+                if (sanitized.tls.insecure !== undefined) {
+                    sanitized.tls.insecure = !!sanitized.tls.insecure;
+                }
             }
         }
 
@@ -724,6 +748,14 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
                 if (inbound?.type === 'tun') {
                     delete inbound.stack;
                 }
+            });
+        }
+
+        if (Array.isArray(this.config.outbounds)) {
+            this.config.outbounds = this.config.outbounds.map(outbound => {
+                if (!outbound || typeof outbound !== 'object' || !outbound.type) return outbound;
+                if (['selector', 'urltest', 'direct', 'block', 'dns'].includes(outbound.type)) return outbound;
+                return this.convertProxy(outbound);
             });
         }
 

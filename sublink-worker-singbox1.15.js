@@ -3586,6 +3586,16 @@ function convertYamlProxyToObject(p) {
     if (value === void 0 || value === null) return void 0;
     return String(value);
   }, "toStringSafe");
+  const isIp = /* @__PURE__ */ __name((str2) => typeof str2 === "string" && (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(str2) || str2.includes(":")), "isIp");
+  const resolveServerName = /* @__PURE__ */ __name((explicitSni, server) => {
+    if (explicitSni !== void 0 && explicitSni !== null && String(explicitSni).trim() !== "") {
+      return String(explicitSni).trim();
+    }
+    if (server && !isIp(String(server).trim())) {
+      return String(server).trim();
+    }
+    return void 0;
+  }, "resolveServerName");
   switch (type2) {
     case "ss":
     case "shadowsocks":
@@ -3603,12 +3613,13 @@ function convertYamlProxyToObject(p) {
         plugin_opts: p["plugin-opts"]
       };
     case "vmess": {
-      const tlsEnabled = !!p.tls;
+      const tlsEnabled = typeof p.tls !== "undefined" ? !!p.tls : p.network === "h2" || p.security === "tls";
+      const serverName = resolveServerName(p.servername || p.sni, p.server);
       const tls = tlsEnabled ? {
         enabled: true,
-        server_name: p.servername || p.sni,
+        ...serverName ? { server_name: serverName } : {},
         insecure: !!p["skip-cert-verify"]
-      } : { enabled: false };
+      } : void 0;
       const transport = (() => {
         const net = p.network || p["network-type"];
         if (net === "ws") {
@@ -3647,15 +3658,16 @@ function convertYamlProxyToObject(p) {
       };
     }
     case "vless": {
-      const tlsEnabled = !!p.tls;
       const reality = p["reality-opts"];
+      const tlsEnabled = typeof p.tls !== "undefined" ? !!p.tls : !!reality || p.security === "tls" || p.security === "reality";
+      const serverName = resolveServerName(p.servername || p.sni, p.server);
       const tls = tlsEnabled ? {
         enabled: true,
-        server_name: p.servername || p.sni,
+        ...serverName ? { server_name: serverName } : {},
         insecure: !!p["skip-cert-verify"],
         ...reality ? { reality: { enabled: true, public_key: reality["public-key"], short_id: reality["short-id"] } } : {}
-      } : { enabled: false };
-      if (p["client-fingerprint"]) {
+      } : void 0;
+      if (tls && p["client-fingerprint"]) {
         tls.utls = {
           enabled: true,
           fingerprint: p["client-fingerprint"]
@@ -3698,19 +3710,22 @@ function convertYamlProxyToObject(p) {
       };
     }
     case "trojan": {
-      const tlsEnabled = !!p.tls;
       const reality = p["reality-opts"];
-      const tls = tlsEnabled ? {
+      const serverName = resolveServerName(p.servername || p.sni, p.server);
+      const tls = {
         enabled: true,
-        server_name: p.servername || p.sni,
+        ...serverName ? { server_name: serverName } : {},
         insecure: !!p["skip-cert-verify"],
         ...reality ? { reality: { enabled: true, public_key: reality["public-key"], short_id: reality["short-id"] } } : {}
-      } : { enabled: false };
+      };
       if (p["client-fingerprint"]) {
         tls.utls = {
           enabled: true,
           fingerprint: p["client-fingerprint"]
         };
+      }
+      if (p.alpn) {
+        tls.alpn = toArray2(p.alpn);
       }
       const transport = (() => {
         const net = p.network;
@@ -3749,9 +3764,10 @@ function convertYamlProxyToObject(p) {
     case "hysteria2":
     case "hysteria":
     case "hy2": {
+      const serverName = resolveServerName(p.sni || p.servername, p.server);
       const tls = {
         enabled: true,
-        server_name: p.sni,
+        ...serverName ? { server_name: serverName } : {},
         insecure: !!p["skip-cert-verify"]
       };
       const obfs = {};
@@ -3780,6 +3796,7 @@ function convertYamlProxyToObject(p) {
       };
     }
     case "tuic": {
+      const serverName = resolveServerName(p.sni || p.servername, p.server);
       return {
         tag: name,
         type: "tuic",
@@ -3790,7 +3807,7 @@ function convertYamlProxyToObject(p) {
         congestion_control: p["congestion-controller"] || p.congestion_control,
         tls: {
           enabled: true,
-          server_name: p.sni,
+          ...serverName ? { server_name: serverName } : {},
           alpn: toArray2(p.alpn),
           insecure: !!p["skip-cert-verify"]
         },
@@ -3803,9 +3820,10 @@ function convertYamlProxyToObject(p) {
       };
     }
     case "anytls": {
+      const serverName = resolveServerName(p.sni || p.servername, p.server);
       const tls = {
         enabled: true,
-        server_name: p.sni,
+        ...serverName ? { server_name: serverName } : {},
         insecure: !!p["skip-cert-verify"],
         alpn: toArray2(p.alpn)
       };
@@ -11888,15 +11906,34 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
         sanitized.obfs.password = String(sanitized.obfs.password);
       }
     }
-    if (sanitized.tls && typeof sanitized.tls === "object") {
-      if (sanitized.tls.server_name !== void 0 && sanitized.tls.server_name !== null) {
-        sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
-        if (sanitized.tls.server_name === "") {
-          delete sanitized.tls.server_name;
+    const TLS_MANDATORY_TYPES = ["trojan", "hysteria2", "tuic", "anytls"];
+    if (TLS_MANDATORY_TYPES.includes(sanitized.type)) {
+      if (!sanitized.tls || typeof sanitized.tls !== "object") {
+        sanitized.tls = { enabled: true };
+      } else {
+        sanitized.tls.enabled = true;
+      }
+      if (!sanitized.tls.server_name && sanitized.server) {
+        const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(sanitized.server) || sanitized.server.includes(":");
+        if (!isIp) {
+          sanitized.tls.server_name = sanitized.server;
         }
       }
-      if (sanitized.tls.insecure !== void 0) {
-        sanitized.tls.insecure = !!sanitized.tls.insecure;
+    }
+    if (sanitized.tls && typeof sanitized.tls === "object") {
+      if (sanitized.tls.enabled === false) {
+        delete sanitized.tls;
+      } else {
+        sanitized.tls.enabled = true;
+        if (sanitized.tls.server_name !== void 0 && sanitized.tls.server_name !== null) {
+          sanitized.tls.server_name = String(sanitized.tls.server_name).trim();
+          if (sanitized.tls.server_name === "") {
+            delete sanitized.tls.server_name;
+          }
+        }
+        if (sanitized.tls.insecure !== void 0) {
+          sanitized.tls.insecure = !!sanitized.tls.insecure;
+        }
       }
     }
     if (sanitized.transport) {
@@ -12364,6 +12401,13 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
         if (inbound?.type === "tun") {
           delete inbound.stack;
         }
+      });
+    }
+    if (Array.isArray(this.config.outbounds)) {
+      this.config.outbounds = this.config.outbounds.map((outbound) => {
+        if (!outbound || typeof outbound !== "object" || !outbound.type) return outbound;
+        if (["selector", "urltest", "direct", "block", "dns"].includes(outbound.type)) return outbound;
+        return this.convertProxy(outbound);
       });
     }
     if (this.config.dns && typeof this.config.dns === "object") {
