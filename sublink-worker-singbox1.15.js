@@ -6676,8 +6676,8 @@ var html = /* @__PURE__ */ __name((strings, ...values) => {
 // src/constants.js
 var APP_NAME = "Sublink Worker";
 var APP_VERSION = "2.5.0";
-var GITHUB_REPO = "https://github.com/7Sageer/sublink-worker";
-var GITHUB_API_RELEASES = "https://api.github.com/repos/7Sageer/sublink-worker/releases/latest";
+var GITHUB_REPO = "https://github.com/sekzhao/sublink-worker";
+var GITHUB_API_RELEASES = "https://api.github.com/repos/sekzhao/sublink-worker/releases/latest";
 var DOCS_URL = "https://sublink.works";
 var APP_KEYWORDS = "clash, singbox, surge, subscription, converter, sublink";
 var APP_SUBTITLE = {
