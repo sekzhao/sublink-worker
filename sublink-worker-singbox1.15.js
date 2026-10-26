@@ -11778,6 +11778,20 @@ __name(findGroupIndexByName, "findGroupIndexByName");
 
 // src/builders/SingboxConfigBuilder.js
 var RULE_SET_HTTP_CLIENT_TAG = "rule-set-download";
+var VALID_SINGBOX_ROOT_KEYS = /* @__PURE__ */ new Set([
+  "$schema",
+  "log",
+  "dns",
+  "ntp",
+  "endpoints",
+  "inbounds",
+  "outbounds",
+  "route",
+  "services",
+  "experimental",
+  "http_clients",
+  "certificate_providers"
+]);
 var ANYTLS_OPTION_KEYS = {
   "idle-session-check-interval": "idle_session_check_interval",
   "idle-session-timeout": "idle_session_timeout",
@@ -12327,6 +12341,11 @@ var SingboxConfigBuilder = class extends BaseConfigBuilder {
         }
       });
     }
+    Object.keys(this.config).forEach((key) => {
+      if (!VALID_SINGBOX_ROOT_KEYS.has(key)) {
+        delete this.config[key];
+      }
+    });
     return this.config;
   }
 };

@@ -7,6 +7,21 @@ import { buildSelectorMembers as buildSelectorMemberList, buildNodeSelectMembers
 import { normalizeGroupName } from './helpers/groupNameUtils.js';
 
 const RULE_SET_HTTP_CLIENT_TAG = 'rule-set-download';
+const VALID_SINGBOX_ROOT_KEYS = new Set([
+    '$schema',
+    'log',
+    'dns',
+    'ntp',
+    'endpoints',
+    'inbounds',
+    'outbounds',
+    'route',
+    'services',
+    'experimental',
+    'http_clients',
+    'certificate_providers'
+]);
+
 const ANYTLS_OPTION_KEYS = {
     'idle-session-check-interval': 'idle_session_check_interval',
     'idle-session-timeout': 'idle_session_timeout',
@@ -685,6 +700,14 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
                 }
             });
         }
+
+                // Strip any Clash or Surge root fields (such as 'mixed-port', 'port', 'allow-lan', 'mode')
+        // sing-box enforces strict JSON unmarshaling and rejects unknown root fields.
+        Object.keys(this.config).forEach(key => {
+            if (!VALID_SINGBOX_ROOT_KEYS.has(key)) {
+                delete this.config[key];
+            }
+        });
 
         return this.config;
     }

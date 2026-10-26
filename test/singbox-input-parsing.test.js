@@ -283,4 +283,32 @@ proxies:
         expect(typeof vmess.uuid).toBe('string');
         expect(vmess.uuid).toBe('88888888');
     });
+    it('should strip Clash root fields like mixed-port and port from sing-box config', async () => {
+        const fullClash = `
+port: 7890
+socks-port: 7891
+mixed-port: 7890
+allow-lan: true
+mode: rule
+log-level: info
+proxies:
+  - name: "Node-Test"
+    type: ss
+    server: 1.1.1.1
+    port: 8388
+    cipher: aes-256-gcm
+    password: test
+`;
+        const builder = new SingboxConfigBuilder(
+            fullClash, [], [], null, 'zh-CN', null, false
+        );
+        const result = await builder.build();
+        expect(result['mixed-port']).toBeUndefined();
+        expect(result['port']).toBeUndefined();
+        expect(result['socks-port']).toBeUndefined();
+        expect(result['allow-lan']).toBeUndefined();
+        expect(result['mode']).toBeUndefined();
+        expect(result['log-level']).toBeUndefined();
+        expect(result.outbounds.some(o => o.tag === 'Node-Test')).toBe(true);
+    });
 });
